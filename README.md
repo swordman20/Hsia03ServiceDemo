@@ -91,8 +91,242 @@ class myPhoneStat extends PhoneStateListener{
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 ```
 
+##Start开启服务的生命周期（重点）
 
+   * 服务的特点：
+ 
+		服务被创建时调用onCreate、onStartCommand；
+	   	服务只能被创建一次，可以开启多次onStartCommand；
+	   	服务只能被停止一次； 
+		没有onPause、onStop、onResume、onRestart方法，因为service没有界面，长期运行在后台。
 
+* 生命周期的方法：
+ 
+	    onCreate:服务被创建的时候调用这个方法；
+		onStartCommand ：开启服务
+	    onDestroy：销毁服务
+
+##Bind方式开启服务的生命周期（重点）
+
+    bindService绑定服务、unBindService解除绑定的服务；
+	服务是在被绑定的时候被创建，调用oncreate、onbind方法；
+    服务只能被绑定一次；
+	服务只能被解除一次，接触绑定的时候调用onUnbind、onDestrory方法，如果多次解除绑定会抛出异常；
+    
+
+    推荐的方式：
+
+    startService：开启并创建一个服务，服务长期运行在后台；
+    bindService:绑定服务，可以调用服务里面的方法；
+    unBindService：解除服务，停止服务里面的方法；
+    stopService：停止服务，销毁服务对象；
+    
+##通过Bind方式调用服务里面的方法
+	重点：定义一个类继承Service,重写onBind方法，把return null；改为return 自定义对象。
+
+```
+	//bind方式开启服务
+	Intent intent = new Intent(this, TestService.class);
+        conn = new MyServiceConnection();
+        //最后一个参数为自动绑定
+        bindService(intent, conn,BIND_AUTO_CREATE);
+       
+       
+    //定义一个类实现ServiceConnection，当服务连接成功是调用（前提是onBind返回不是null）
+    private class MyServiceConnection implements ServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.d(TestService.TAG,"bind服务onServiceConnected");
+            myIBinder = (TestService.MyIBinder)service;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d(TestService.TAG,"bind服务onServiceDisconnected");
+        }
+    }
+    
+    @Override
+    public IBinder onBind(Intent intent) {
+        Log.d(TAG, "服务里面的onBind");
+        return new MyIBinder();
+    }
+    public class MyIBinder extends Binder{
+        public void showToast(){
+            Log.d(TAG,"服务里面的匿名类MyBind的showToaSt方法");
+            show();
+        }
+    }
+    public void show(){
+        Toast.makeText(getApplicationContext(),"我是服务里面的方法",Toast.LENGTH_SHORT).show();
+    }
+```
+##绑定服务抽取成接口（重点）
+
+```
+	接口（interface）： 对外开放暴露的功能，但是不会暴露功能实现的细节；
+	让中间人实现服务接口的目的：只对外暴露接口里面业务逻辑方法，隐藏中间人里面的其他方法；
+```
+
+步骤：
+	
+1、创建一个服务的接口类，里面包含需要对外暴露的业务逻辑方法：
+	
+```
+	public interface IService {
+		public void callMethodInService();
+	}
+	
+```
+	
+ 2、让服务中的中间人实现了服务的接口类：
+
+```
+private class MyBinder extends Binder implements IService{
+		//(实现服务接口中的方法)使用中间人调用服务里的方法
+		public void callMethodInService(){
+			methodInService();
+		   }
+ 		}
+```
+3、在activity中声明接口的成员变量：
+	private IService myBinder;
+
+4、强制转换成服务的接口类型
+		
+```
+	private class MyConn implements ServiceConnection {
+		//服务连接成功时调用这个方法
+		@Override
+		public void onServiceConnected(ComponentName name, IBinder service) {
+		//强制转换成服务的接口类型
+		myBinder = (IService) service;
+		}
+```
+
+5、在activity中通过接口的成员变量调用服务的业务逻辑方法：
+
+```
+	public void call(View view){
+		myBinder.callMethodInService();
+	}
+```
+
+##利用服务注册广播接收者（动态注册广播）
+
+注：操作频繁的广播事件，如果只是在清单配置文件配置，是不生效的。需要使用代码注册才能生效；
+步骤：
+
+```
+	//动态注册广播,广播就不需要再清单文件中配置了
+        screenBroadCast = new ScreenBroadCast();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction("android.intent.action.SCREEN_OFF");
+        intentFilter.addAction("android.intent.action.SCREEN_ON");
+        registerReceiver(screenBroadCast,intentFilter);
+```
+##进程间通信_远程服务aidl的写法（重点）
+本地服务：写在自己的应用程序的工程里的服务 ，使用自己应用程序的进程运行这个服务；
+远程服务：写在别的应用程序的工程里的服务，使用别的应用程序的进程运行这个服务（安装在同一个手机上的应用程序）；
+	IPC： Inter Process Communication（进程间的通讯）；
+	aidl: Android Interface definition language 安卓接口定义语言；
+	aidl的接口类里面不需要public 、protected、private 等修饰符，默认是公开共享；
+步骤：
+	1、创建一个服务的接口类，里面包含需要对外暴露的业务逻辑方法：
+	2、让服务中的中间人实现了服务的接口类：
+	3、修改并拷贝接口文件：
+	4、在本地服务的工程中的activity里，绑定服务：
+	5、通过接口调用远程服务的方法：
+
+代码如下：
+
+* 服务端代码：
+1、创建一个类继承Service，重写onBind方法，返回MyBind。
+
+```
+ @Override
+    public IBinder onBind(Intent intent) {
+        return new MyBind();
+    }
+```
+2、新建一个包路径，并新建一个aidl文件，并添加你想要对我提供的方法。
+
+```
+package com.hsia;
+
+interface IMyAidlInterface {
+    /**
+     * Demonstrates some basic types that you can use as parameters
+     * and return values in AIDL.
+     */
+    void callShow();
+}
+```
+
+3、使用Android Studio重构功能，aidl文件会生成一个.java为后缀的文件。
+
+4、让MyBind继承自这个aidl生成的.java类，并实现里面的方法
+
+```
+private class MyBind extends IMyAidlInterface.Stub {
+
+        @Override
+        public void callShow() throws RemoteException {
+        //调用服务里面的方法
+            show();
+        }
+    }
+```
+
+* 调用端代码：
+
+1、调用远程服务的初始化
+			
+```
+ @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        Intent intent = new Intent();
+        //安卓5.0不允许通过隐式意图去开启服务，否则回报这个错
+        //Service Intent must be explicit:
+//        Android 5.0程序运行报Service Intent must be explicit错误，原因是5.0的service必须显式调用
+//        intent.setAction("com.hsia");
+        //第一个参数，包名，第二个参数包名+类名
+        intent.setComponent(new ComponentName("com.example.xwf.service06aidl_server","com.example.xwf.service06aidl_server.ServerService"));
+        ServiceConnection conn = new MyServiceConnection();
+        bindService(intent,conn,BIND_AUTO_CREATE);
+    }
+    
+    private class MyServiceConnection implements ServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            //这个写法有些特别和，bindservice不太一样
+            iMyAidlInterface = IMyAidlInterface.Stub.asInterface(service);
+            Log.d(TAG,"服务连接成功");
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    }
+```
+
+2、调用远程服务的点击事件
+
+```
+public void click(View view){
+        try {
+        //调用远程服务的方法。
+            iMyAidlInterface.callShow();
+            Log.d(TAG,"远程服务");
+        } catch (RemoteException e) {
+            Log.d(TAG,"远程服务没有找到");
+            e.printStackTrace();
+        }
+    }
+```
 
 
 

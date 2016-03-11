@@ -5,17 +5,17 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context="com.example.xwf.service03bindservice.MainActivity">
-
-   <Button
-       android:onClick="start"
-       android:layout_width="match_parent"
-       android:layout_height="wrap_content"
-       android:text="普通方式开启服务"/>
     <Button
-        android:onClick="stop"
+        android:onClick="startSer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="普通方式停止服务"/>
+        android:text="start方式开启服务"/>
+
+    <Button
+        android:onClick="stopSer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="stop方式停止服务"/>
     <Button
         android:onClick="bindStart"
         android:layout_width="match_parent"
@@ -26,4 +26,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="bind方式停止服务"/>
+    <Button
+        android:onClick="bindMe"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="调用服务里面的方法"/>
 </LinearLayout>

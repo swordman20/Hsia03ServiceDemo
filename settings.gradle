@@ -1,1 +1,1 @@
-include ':app', ':Service02电话窃听', ':Service03Bindservice'
+include ':app', ':Service02电话窃听', ':Service03Bindservice', ':Service04Bind&&Interface', ':ScreenBroadCast05', ':Service06线程间通信aidl_Server', ':Service07线程间通信aidl_Client'
